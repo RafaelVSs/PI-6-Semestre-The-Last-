@@ -1,0 +1,24 @@
+[project]
+name = "FRONTNIX"
+version = "1.0.0"
+description = "Esse projeto foi desenvolvido para solucionar problemas no controle de abastecimento de frotas de caminhões"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "fastapi>=0.118.0",
+    "uvicorn>=0.37.0",
+    "pydantic>=2.11.9",
+    "pydantic-settings>=2.11.0",
+    "pydantic[email]>=2.11.9",
+    "requests>=2.32.5",
+    "http_response>=0.0.9",
+    "slowapi>=0.1.9",
+    "typing_extensions>=4.15.0",
+    "uuid7>=0.1.0",
+    "SQLAlchemy>=2.0.43",
+    "asyncpg>=0.30.0",
+    "bcrypt>=5.0.0",
+    "python-jose[cryptography]>=3.3.0",
+    "python-multipart>=0.0.20",
+    "google-cloud-pubsub>=2.18.0"
+]
