@@ -19,6 +19,9 @@ class Settings(BaseSettings):
     PUBSUB_TOPIC: str = "pi-smarttruck-pub"
     PUBSUB_SUBSCRIPTION: str = "pi-smarttruck-sub"
     GOOGLE_APPLICATION_CREDENTIALS: Optional[str] = None  # Path to service account JSON
+    
+    # CORS Configuration
+    CORS_ORIGINS: str = "http://localhost:3000,http://localhost:3030,https://frotinix.eastus2.cloudapp.azure.com"
 
 
 settings = Settings()
