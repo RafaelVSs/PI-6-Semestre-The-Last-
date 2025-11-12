@@ -2,7 +2,8 @@ from .user import UserBase, UserCreate, UserUpdate, UserResponse, UserListRespon
 from .telephone_number import TelephoneNumberCreate, TelephoneNumberUpdate, TelephoneNumberListResponse, TelephoneNumberResponse
 from .refuel import RefuelCreate, RefuelUpdate, RefuelResponse, RefuelListResponse
 from .vehicle import VehicleCreate, VehicleUpdate, VehicleResponse, VehicleListResponse
-from .enums import UserStatus, UserType, TelephoneNumberStatus, VehicleType
+from .maintenance import MaintenanceCreate, MaintenanceUpdate, MaintenanceResponse, MaintenanceListResponse
+from .enums import UserStatus, UserType, TelephoneNumberStatus, VehicleType, MaintenanceStatus
 
 __all__ = [
     "UserBase",
@@ -25,5 +26,10 @@ __all__ = [
     "VehicleUpdate",
     "VehicleResponse",
     "VehicleListResponse",
-    "VehicleType"
+    "VehicleType",
+    "MaintenanceCreate",
+    "MaintenanceUpdate",
+    "MaintenanceResponse",
+    "MaintenanceListResponse",
+    "MaintenanceStatus"
 ]

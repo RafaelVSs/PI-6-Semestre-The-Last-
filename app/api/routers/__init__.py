@@ -4,6 +4,7 @@ from .users import router as users_router
 from .telephone_number import router as telephone_router
 from .refuel import router as refuel_router
 from .vehicle import router as vehicle_router
+from .maintenance import router as maintenance_router
 
 # Lista de todos os routers para exportação
 __all__ = [
@@ -12,5 +13,6 @@ __all__ = [
     "users_router",
     "telephone_router", 
     "refuel_router",
-    "vehicle_router"
+    "vehicle_router",
+    "maintenance_router"
 ]

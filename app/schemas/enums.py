@@ -25,4 +25,12 @@ class VehicleType(str, Enum):
     """Enum para tipo de veículo"""
     CARRO = "carro"
     CAMINHAO = "caminhao"
-    VAN = "van"    
+    VAN = "van"
+
+
+class MaintenanceStatus(str, Enum):
+    """Enum para status da manutenção"""
+    PENDENTE = "pendente"
+    EM_ANDAMENTO = "em_andamento"
+    CONCLUIDA = "concluida"
+    CANCELADA = "cancelada"

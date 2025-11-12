@@ -85,6 +85,14 @@ class Vehicle(BaseModel):
         back_populates="veiculos",
         lazy="select"
     )
+    
+    # Relacionamento com Maintenance
+    manutencoes: Mapped[list["Maintenance"]] = relationship(
+        "Maintenance",
+        back_populates="veiculo",
+        cascade="all, delete-orphan",
+        lazy="select"
+    )
 
     def __repr__(self) -> str:
         return f"<Vehicle(id={self.id}, placa='{self.placa}', modelo='{self.modelo}')>"
