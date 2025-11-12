@@ -1,12 +1,10 @@
+from uuid import UUID
+from .base_exceptions import FrontnixException
 """
 Exceções específicas para entidade Manutenção
 """
-from uuid import UUID
-from .base_exceptions import FrontnixException
-
 
 class ManutencaoNotFoundError(FrontnixException):
-    """Exceção para manutenção não encontrada"""
     
     def __init__(self, message: str = "Manutenção não encontrada"):
         super().__init__(
