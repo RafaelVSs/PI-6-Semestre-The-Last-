@@ -7,7 +7,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.models.maintenance import Maintenance
 from app.schemas.maintenance import MaintenanceCreate, MaintenanceUpdate
 from app.schemas.enums import MaintenanceStatus
-from app.common.exceptions.manutencao_exceptions import ManutencaoNotFoundError
+from app.common.exceptions.maintenance_exceptions import ManutencaoNotFoundError
 
 
 class MaintenanceRepository:
