@@ -47,7 +47,7 @@ from .abastecimento_exceptions import (
 )
 
 # Manutenção exceptions
-from .manutencao_exceptions import (
+from .maintenance_exceptions import (
     ManutencaoNotFoundError,
     ManutencaoAlreadyExistsError
 )
