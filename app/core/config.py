@@ -21,7 +21,7 @@ class Settings(BaseSettings):
     GOOGLE_APPLICATION_CREDENTIALS: Optional[str] = None  # Path to service account JSON
     
     # CORS Configuration
-    CORS_ORIGINS: str = "http://localhost:3000,http://localhost:3030,https://frotinix.eastus2.cloudapp.azure.com"
+    CORS_ORIGINS: str = "http://localhost:3000,http://localhost:3030,https://frotinix.eastus2.cloudapp.azure.com,https://frotinix.vercel.app"
 
 
 settings = Settings()
