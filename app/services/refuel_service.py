@@ -22,7 +22,7 @@ class RefuelService:
     
     async def create_refuel(self, refuel_data: RefuelCreate) -> Refuel:
         """Criar novo abastecimento"""
-        # Validações de negócio
+
         if refuel_data.litros <= 0:
             raise ValidationError("Quantidade de litros deve ser maior que zero")
         
@@ -31,29 +31,63 @@ class RefuelService:
         
         if refuel_data.km <= 0:
             raise ValidationError("Quilometragem deve ser maior que zero")
-        
-        # Validar média apenas se tanque cheio
-        if refuel_data.media is not None and not refuel_data.tanque_cheio:
-            raise ValidationError("Média só pode ser calculada quando o tanque está cheio")
-        
-        # Buscar veículo pela placa
+
         try:
             vehicle = await self.vehicle_repository.get_by_placa(refuel_data.placa)
         except VeiculoNotFoundError:
             raise ValidationError(f"Veículo com placa {refuel_data.placa} não encontrado")
-        
-        # Validar que KM do abastecimento >= KM atual do veículo
+
         if refuel_data.km < vehicle.km_atual:
             raise ValidationError(
                 f"KM do abastecimento ({refuel_data.km}) não pode ser menor que o KM atual do veículo ({vehicle.km_atual})"
             )
-        
-        # Validar que não pode abastecer mais que a capacidade do tanque
+
         if refuel_data.litros > vehicle.capacidade_tanque:
             raise ValidationError(
                 f"Quantidade de litros ({refuel_data.litros}L) excede a capacidade do tanque ({vehicle.capacidade_tanque}L)"
             )
         
+        media_calculada: Optional[Decimal] = None
+        
+        if refuel_data.tanque_cheio:
+            # Buscar o último abastecimento de *tanque cheio* para este veículo
+            #    (Usando a KM atual como "antes de")
+            ultimo_tanque_cheio = await self.repository.get_last_refuel_by_placa(
+                placa=refuel_data.placa,
+                tanque_cheio=True,
+                before_km=refuel_data.km
+            )
+            
+            if ultimo_tanque_cheio:
+                # 2. Calcular a distância percorrida desde o último tanque cheio
+                distancia = refuel_data.km - ultimo_tanque_cheio.km
+                
+                if distancia > 0:
+                    # 3. Somar todos os litros de abastecimentos *intermediários* (parciais)
+                    litros_intermediarios = await self.repository.get_sum_litros_between_km(
+                        placa=refuel_data.placa,
+                        km_start=ultimo_tanque_cheio.km,
+                        km_end=refuel_data.km
+                    )
+                    
+                    # 4. Litros totais consumidos = (Litros intermediários) + (Litros do abastecimento atual)
+                    litros_totais_consumidos = litros_intermediarios + refuel_data.litros
+                    
+                    if litros_totais_consumidos > 0:
+                        # 5. Calcular a média (Km / L)
+                        media_calculada = Decimal(distancia) / Decimal(litros_totais_consumidos)
+                        # Arredondar para 2 casas decimais, por exemplo
+                        media_calculada = round(media_calculada, 2)
+
+        # Atribui a média calculada (ou None) ao objeto de dados
+        refuel_data.media = media_calculada
+        
+        # Se não for tanque cheio, a média *deve* ser nula
+        if not refuel_data.tanque_cheio:
+            refuel_data.media = None
+            
+        # --- FIM: Lógica de Cálculo de Média ---
+
         # Criar o abastecimento
         refuel = await self.repository.create(refuel_data)
         
@@ -128,3 +162,4 @@ class RefuelService:
     async def delete_refuel(self, refuel_id: int) -> None:
         """Deletar abastecimento"""
         await self.repository.delete(refuel_id)
+        
