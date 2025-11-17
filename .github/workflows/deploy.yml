@@ -31,6 +31,7 @@ jobs:
         run: |
           sshpass -p "$SSH_PASSWORD" ssh -o StrictHostKeyChecking=no ${SSH_USER}@${SSH_HOST} "bash -s" <<'EOF'
           set -e
+          mkdir -p "$REMOTE_DIR"
           if [ ! -d "$REMOTE_DIR/.git" ]; then
             echo "Clonando repositório..."
             git clone https://github.com/RafaelVSs/PI-6-Semestre-The-Last-.git "$REMOTE_DIR"
