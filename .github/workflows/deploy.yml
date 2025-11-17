@@ -29,7 +29,10 @@ jobs:
 
       - name: Sync code to VM (git pull strategy)
         run: |
-          sshpass -p "$SSH_PASSWORD" ssh -o StrictHostKeyChecking=no ${SSH_USER}@${SSH_HOST} "bash -s" <<'EOF'
+          sshpass -p "$SSH_PASSWORD" ssh -o StrictHostKeyChecking=no ${SSH_USER}@${SSH_HOST} \
+            REMOTE_DIR="$REMOTE_DIR" \
+            GIT_BRANCH="$GIT_BRANCH" \
+            "bash -s" <<'EOF'
           set -e
           mkdir -p "$REMOTE_DIR"
           if [ ! -d "$REMOTE_DIR/.git" ]; then
@@ -44,7 +47,9 @@ jobs:
 
       - name: Build and restart containers
         run: |
-          sshpass -p "$SSH_PASSWORD" ssh -o StrictHostKeyChecking=no ${SSH_USER}@${SSH_HOST} "bash -s" <<'EOF'
+          sshpass -p "$SSH_PASSWORD" ssh -o StrictHostKeyChecking=no ${SSH_USER}@${SSH_HOST} \
+            REMOTE_DIR="$REMOTE_DIR" \
+            "bash -s" <<'EOF'
           set -e
           cd "$REMOTE_DIR"
           echo "Iniciando deploy..."
