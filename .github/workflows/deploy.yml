@@ -1,0 +1,71 @@
+name: Deploy API to Azure VM
+
+on:
+  push:
+    branches: [ "main" ]
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    env:
+      SSH_HOST: ${{ secrets.AZURE_VM_HOST }}
+      SSH_USER: ${{ secrets.AZURE_VM_USER }}
+      SSH_PASSWORD: ${{ secrets.AZURE_VM_PASSWORD }}
+      REMOTE_DIR: /home/red/pi-6-semestre/BACK/PI-6-Semestre-The-Last-
+      HEALTH_URL: http://localhost:8080/healthcheck
+      GIT_BRANCH: main
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install sshpass
+        run: sudo apt-get update && sudo apt-get install -y sshpass
+
+      - name: Add VM to known_hosts
+        run: |
+          ssh-keyscan -H "$SSH_HOST" >> ~/.ssh/known_hosts
+
+      - name: Sync code to VM (git pull strategy)
+        run: |
+          sshpass -p "$SSH_PASSWORD" ssh -o StrictHostKeyChecking=no ${SSH_USER}@${SSH_HOST} "bash -s" <<'EOF'
+          set -e
+          if [ ! -d "$REMOTE_DIR/.git" ]; then
+            echo "Clonando repositório..."
+            git clone https://github.com/RafaelVSs/PI-6-Semestre-The-Last-.git "$REMOTE_DIR"
+          fi
+          cd "$REMOTE_DIR"
+          git fetch origin $GIT_BRANCH
+          git reset --hard origin/$GIT_BRANCH
+          git clean -fd
+          EOF
+
+      - name: Build and restart containers
+        run: |
+          sshpass -p "$SSH_PASSWORD" ssh -o StrictHostKeyChecking=no ${SSH_USER}@${SSH_HOST} "bash -s" <<'EOF'
+          set -e
+          cd "$REMOTE_DIR"
+          echo "Iniciando deploy..."
+          docker compose pull || true
+          docker compose build --no-cache api
+          docker compose up -d --remove-orphans
+          EOF
+
+      - name: Health check
+        run: |
+          echo "Aguardando aplicação ficar saudável..."
+          for i in $(seq 1 30); do
+            if sshpass -p "$SSH_PASSWORD" ssh -o StrictHostKeyChecking=no ${SSH_USER}@${SSH_HOST} "curl -fsS $HEALTH_URL > /dev/null"; then
+              echo "Aplicação saudável!"; exit 0; fi
+            sleep 2
+          done
+          echo "Falha no health check"; exit 1
+
+      - name: Show running containers
+        if: success()
+        run: |
+          sshpass -p "$SSH_PASSWORD" ssh -o StrictHostKeyChecking=no ${SSH_USER}@${SSH_HOST} "docker ps --format 'table {{.Names}}\t{{.Status}}\t{{.Ports}}'"
+
+      - name: Rollback placeholder (not implemented)
+        if: failure()
+        run: echo "Rollback não implementado ainda - revisar falha."
