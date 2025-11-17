@@ -24,7 +24,8 @@ jobs:
 
       - name: Add VM to known_hosts
         run: |
-          ssh-keyscan -H "$SSH_HOST" >> ~/.ssh/known_hosts
+          mkdir -p ~/.ssh
+          ssh-keyscan -H "$SSH_HOST" >> ~/.ssh/known_hosts 2>/dev/null || true
 
       - name: Sync code to VM (git pull strategy)
         run: |
