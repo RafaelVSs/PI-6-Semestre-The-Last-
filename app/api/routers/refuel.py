@@ -6,7 +6,6 @@ from fastapi import APIRouter, Depends, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.integrations.db.client import get_db_session
-from app.integrations.pubsub.client import get_pubsub_client, PubSubClient
 from app.schemas.refuel import (
     RefuelCreate,
     RefuelResponse,
@@ -26,44 +25,17 @@ router = APIRouter(prefix="/refuels", tags=["refuels"])
 async def create_refuel(
     refuel_data: RefuelCreate,
     current_user: User = Depends(get_current_active_user),
-    pubsub_client: PubSubClient = Depends(get_pubsub_client),
     db: AsyncSession = Depends(get_db_session)
 ):
     """
-    Criar abastecimento - tenta publicar no Pub/Sub, se falhar salva direto no banco.
-    Retorna 201 Created com os dados do abastecimento.
+    Criar abastecimento 
     """
-    import logging
-    logger = logging.getLogger(__name__)
-    
     service = RefuelService(db)
+    refuel_data.id_usuario = current_user.id
     
-    # Tentar publicar no Pub/Sub
-    try:
-        message_data = refuel_data.model_dump(mode='json')
-        message_data['created_by_user_id'] = str(current_user.id)
-        message_data['created_by_email'] = current_user.email
-        
-        message_id = await pubsub_client.publish_message(
-            data=message_data,
-            event_type='refuel.created',
-            user_id=str(current_user.id)
-        )
-        
-        logger.info(f"Abastecimento publicado no Pub/Sub com message_id: {message_id}")
-        
-        return RefuelPublishResponse(
-            message="Abastecimento enviado para processamento assíncrono",
-            message_id=message_id,
-            status="queued"
-        )
-        
-    except Exception as e:
-        # Se falhar ao publicar, salvar direto no banco (fallback)
-        # As validações estão no service
-        logger.warning(f"Falha ao publicar no Pub/Sub: {str(e)}. Salvando direto no banco.")
-        refuel = await service.create_refuel(refuel_data)
-        return RefuelResponse.model_validate(refuel)
+    refuel = await service.create_refuel(refuel_data)
+    return RefuelResponse.model_validate(refuel)
+    
 
 
 @router.get("/", response_model=RefuelListResponse, status_code=status.HTTP_200_OK)

@@ -1,5 +1,6 @@
 from typing import Optional, List
 from datetime import date
+from decimal import Decimal
 
 from sqlalchemy import select, func
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -121,3 +122,49 @@ class RefuelRepository:
         
         await self.db.delete(refuel)
         await self.db.commit()
+
+    async def get_last_refuel_by_placa(
+        self, 
+        placa: str, 
+        tanque_cheio: Optional[bool] = None, 
+        before_km: Optional[int] = None
+    ) -> Optional[Refuel]:
+        """
+        Busca o último abastecimento de uma placa, ordenado por KM decrescente,
+        com filtros opcionais.
+        """
+        query = select(Refuel).where(Refuel.placa == placa)
+        
+        if tanque_cheio is not None:
+            query = query.where(Refuel.tanque_cheio == tanque_cheio)
+            
+        if before_km is not None:
+            # Garante que estamos pegando um abastecimento anterior ao KM informado
+            query = query.where(Refuel.km < before_km)
+            
+        # Ordena pela maior quilometragem (mais recente)
+        query = query.order_by(Refuel.km.desc())
+        
+        result = await self.db.execute(query.limit(1))
+        return result.scalars().first()
+    
+    async def get_sum_litros_between_km(
+        self, 
+        placa: str, 
+        km_start: int, 
+        km_end: int
+    ) -> Decimal:
+        """
+        Soma todos os litros abastecidos para uma placa entre duas quilometragens
+        (sem incluir as KMs de início e fim).
+        """
+        query = select(func.sum(Refuel.litros)).where(
+            Refuel.placa == placa,
+            Refuel.km > km_start,
+            Refuel.km < km_end
+        )
+        
+        result = await self.db.execute(query)
+        total_litros = result.scalar_one_or_none()
+        
+        return total_litros or Decimal(0)

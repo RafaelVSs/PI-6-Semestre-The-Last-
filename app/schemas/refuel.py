@@ -20,21 +20,31 @@ class RefuelBase(BaseModel):
     posto: Optional[str] = Field(None, max_length=100, description="Nome do posto")
     tanque_cheio: Optional[bool] = Field(False, description="Se o tanque foi completado")
     media: Optional[Decimal] = Field(None, decimal_places=2, description="Média km/L (calculado se tanque cheio)")
-    id_usuario: UUID = Field(..., description="ID do usuário que registrou")
-    placa: str = Field(..., min_length=7, max_length=10, description="Placa do veículo")
 
 
 class RefuelCreate(RefuelBase):
     """Schema para criação de abastecimento (enviado ao Pub/Sub)"""
-    pass
+    id_usuario: UUID = Field(..., description="ID do usuário que registrou")
+    placa: str = Field(..., min_length=7, max_length=10, description="Placa do veículo")
 
 
-class RefuelResponse(RefuelBase):
+class RefuelResponse(BaseModel):
     """Schema para resposta com dados do abastecimento"""
     model_config = ConfigDict(from_attributes=True)
     
-    id_abastecimento: int = Field(..., description="ID único do abastecimento")
-    valor_total: Decimal = Field(..., decimal_places=2, description="Valor total (litros * valor_litro)")
+    id: UUID = Field(..., description="ID único do abastecimento")
+    data: date = Field(..., description="Data do abastecimento")
+    hora: time = Field(..., description="Hora do abastecimento")
+    km: int = Field(..., description="Quilometragem atual no odômetro")
+    litros: Decimal = Field(..., description="Quantidade de litros abastecidos")
+    tipo_combustivel: Optional[str] = Field(None, description="Tipo de combustível (gasolina, diesel, etanol)")
+    valor_litro: Decimal = Field(..., description="Valor por litro")
+    posto: Optional[str] = Field(None, description="Nome do posto")
+    tanque_cheio: Optional[bool] = Field(False, description="Se o tanque foi completado")
+    media: Optional[Decimal] = Field(None, description="Média km/L (calculado se tanque cheio)")
+    valor_total: Decimal = Field(..., description="Valor total (litros * valor_litro)")
+    id_usuario: Optional[UUID] = Field(None, description="ID do usuário que registrou")
+    placa: str = Field(..., description="Placa do veículo")
     created_at: Optional[datetime] = Field(None, description="Data de criação do registro")
     updated_at: Optional[datetime] = Field(None, description="Data da última atualização")
 
