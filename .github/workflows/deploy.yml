@@ -12,7 +12,7 @@ jobs:
       SSH_HOST: ${{ secrets.AZURE_VM_HOST }}
       SSH_USER: ${{ secrets.AZURE_VM_USER }}
       SSH_PASSWORD: ${{ secrets.AZURE_VM_PASSWORD }}
-      REMOTE_DIR: /home/red/pi-6-semestre/BACK/PI-6-Semestre-The-Last-
+      REMOTE_DIR: /home/red/pi-6-semestre/BACK/PI-6-Semestre-The-Last
       HEALTH_URL: http://localhost:8080/healthcheck
       GIT_BRANCH: main
     steps:

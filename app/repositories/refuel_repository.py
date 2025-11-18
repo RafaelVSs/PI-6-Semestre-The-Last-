@@ -19,7 +19,6 @@ class RefuelRepository:
     async def create(self, refuel_data: RefuelCreate) -> Refuel:
         """
         Cria um novo abastecimento no banco de dados.
-        A média NÃO é calculada aqui — já vem do Service.
         """
 
         db_refuel = Refuel(
@@ -31,7 +30,7 @@ class RefuelRepository:
             valor_litro=refuel_data.valor_litro,
             posto=refuel_data.posto,
             tanque_cheio=refuel_data.tanque_cheio,
-            media=refuel_data.media,           # Já calculada no Service
+            media=refuel_data.media,  
             id_usuario=refuel_data.id_usuario,
             placa=refuel_data.placa
         )
