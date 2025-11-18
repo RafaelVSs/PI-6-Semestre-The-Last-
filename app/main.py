@@ -3,17 +3,8 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
 from .core.config import settings
-
-from app.api.routers.home import router as home_router
-from app.api.routers.auth import router as auth_router
-from app.api.routers.users import router as users_router
-from app.api.routers.telephone_number import router as telephone_router
-from app.api.routers.refuel import router as refuel_router
-from app.api.routers.vehicle import router as vehicle_router
-from app.api.routers.maintenance import router as maintenance_router
-from app.api.routers.ai import router as ai_router
-from app.api.routers.alert import router as alert_router
-
+from .api import api_router
+from .api.routers.home import router as home_router
 from .common.exceptions import (
     FrontnixException,
     ValidationError,
@@ -27,8 +18,6 @@ app = FastAPI(
     description="API para controle de abastecimento de frotas de caminhões"
 )
 
-# CORS ------------------------------------------------------------------
-
 origins = [origin.strip() for origin in settings.CORS_ORIGINS.split(",")]
 
 app.add_middleware(
@@ -39,25 +28,13 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Inclui rota raiz ------------------------------------------------------
-
 app.include_router(home_router)
 
-# 🔥 INCLUSÃO DE TODOS OS ROUTERS MANUALMENTE
-# (agora que seu __init__.py exporta todos via __all__)
-# Obs: você NÃO precisa mais do api_router agrupado.
-# Agora é explícito e claro.
-app.include_router(auth_router, prefix="/api/v1/auth")
-app.include_router(users_router, prefix="/api/v1/users")
-app.include_router(telephone_router, prefix="/api/v1/telephone")
-app.include_router(refuel_router, prefix="/api/v1/refuel")
-app.include_router(vehicle_router, prefix="/api/v1/vehicle")
-app.include_router(maintenance_router, prefix="/api/v1/maintenance")
-app.include_router(ai_router, prefix="/api/v1/ai")  # ✅ NOVO
-app.include_router(alert_router, prefix="/api/v1/alerts")
+app.include_router(
+    api_router,
+    prefix="/api/v1"
+)
 
-
-# ----------------------------------------------------------------------
 
 # Exception Handlers Globais -------------------------------------------
 
@@ -85,9 +62,6 @@ async def business_rule_exception_handler(request: Request, exc: BusinessRuleErr
         content=http_exc.detail
     )
 
-# ----------------------------------------------------------------------
-
-# Startup ---------------------------------------------------------------
 
 async def startup_event():
     print("Aplicação FastAPI iniciada com sucesso!")
