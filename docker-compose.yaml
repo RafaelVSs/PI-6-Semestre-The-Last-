@@ -5,7 +5,7 @@ services:
     environment:
       POSTGRES_USER: rafael
       POSTGRES_PASSWORD: 1234
-      POSTGRES_DB: frontnix-db
+      POSTGRES_DB: frontnix_db
     ports:
       - "5432:5432"
     volumes:
@@ -15,7 +15,7 @@ services:
     healthcheck:
       test:
         - CMD-SHELL
-        - pg_isready -U rafael -d frontnix-db
+        - pg_isready -U rafael -d frontnix_db
       interval: 10s
       timeout: 5s
       retries: 5
@@ -28,7 +28,7 @@ services:
     container_name: api_pi_6_dsm
     environment:
       # Database
-      DATABASE_URL: postgresql+asyncpg://rafael:1234@postgres:5432/frontnix-db
+      DATABASE_URL: postgresql+asyncpg://rafael:1234@postgres:5432/frontnix_db
       
       # JWT
       SECRET_KEY: ${SECRET_KEY:-your-secret-key-change-in-production}
@@ -46,6 +46,8 @@ services:
         condition: service_healthy
     networks:
       - app-network
+    volumes:
+      - ./models:/app/models/modelos_frota
     restart: always
 
 networks:

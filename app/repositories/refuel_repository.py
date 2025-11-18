@@ -17,7 +17,11 @@ class RefuelRepository:
         self.db = db
 
     async def create(self, refuel_data: RefuelCreate) -> Refuel:
-        """Cria um novo abastecimento no banco de dados"""
+        """
+        Cria um novo abastecimento no banco de dados.
+        A média NÃO é calculada aqui — já vem do Service.
+        """
+
         db_refuel = Refuel(
             data=refuel_data.data,
             hora=refuel_data.hora,
@@ -27,11 +31,11 @@ class RefuelRepository:
             valor_litro=refuel_data.valor_litro,
             posto=refuel_data.posto,
             tanque_cheio=refuel_data.tanque_cheio,
-            media=refuel_data.media,
+            media=refuel_data.media,           # Já calculada no Service
             id_usuario=refuel_data.id_usuario,
             placa=refuel_data.placa
         )
-        
+
         self.db.add(db_refuel)
         await self.db.commit()
         await self.db.refresh(db_refuel)
@@ -73,7 +77,12 @@ class RefuelRepository:
         if data_fim:
             query = query.where(Refuel.data <= data_fim)
         
-        query = query.offset(skip).limit(limit).order_by(Refuel.data.desc(), Refuel.hora.desc())
+        query = (
+            query
+            .offset(skip)
+            .limit(limit)
+            .order_by(Refuel.data.desc(), Refuel.hora.desc())
+        )
         
         result = await self.db.execute(query)
         return list(result.scalars().all())
@@ -105,9 +114,8 @@ class RefuelRepository:
 
     async def update(self, refuel_id: int, refuel_data: RefuelUpdate) -> Refuel:
         """Atualiza um abastecimento"""
-        refuel = await self.get_by_id(refuel_id)  # Já lança exception se não encontrar
+        refuel = await self.get_by_id(refuel_id)
         
-        # Atualiza apenas os campos fornecidos
         update_data = refuel_data.model_dump(exclude_unset=True)
         for field, value in update_data.items():
             setattr(refuel, field, value)
@@ -118,7 +126,7 @@ class RefuelRepository:
 
     async def delete(self, refuel_id: int) -> None:
         """Remove um abastecimento"""
-        refuel = await self.get_by_id(refuel_id)  # Já lança exception se não encontrar
+        refuel = await self.get_by_id(refuel_id)
         
         await self.db.delete(refuel)
         await self.db.commit()
@@ -139,10 +147,8 @@ class RefuelRepository:
             query = query.where(Refuel.tanque_cheio == tanque_cheio)
             
         if before_km is not None:
-            # Garante que estamos pegando um abastecimento anterior ao KM informado
             query = query.where(Refuel.km < before_km)
             
-        # Ordena pela maior quilometragem (mais recente)
         query = query.order_by(Refuel.km.desc())
         
         result = await self.db.execute(query.limit(1))

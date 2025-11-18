@@ -1,7 +1,7 @@
 from typing import Optional, List
-from datetime import date
+from datetime import date, datetime
 from uuid import UUID
-from decimal import Decimal
+from decimal import Decimal, ROUND_HALF_UP
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -12,6 +12,11 @@ from app.schemas.refuel import RefuelCreate, RefuelUpdate
 from app.common.exceptions.validation_exceptions import ValidationError
 from app.common.exceptions.veiculo_exceptions import VeiculoNotFoundError
 
+# 🔥 IA
+from app.services.ai_training_service import train_online_append
+from app.services.ai_service import detect_anomaly
+from app.services.alert_service import AlertService
+
 
 class RefuelService:
     """Service para lógica de negócio de abastecimento"""
@@ -19,10 +24,12 @@ class RefuelService:
     def __init__(self, db: AsyncSession):
         self.repository = RefuelRepository(db)
         self.vehicle_repository = VehicleRepository(db)
-    
+        self.alert_service = AlertService(db)
+
     async def create_refuel(self, refuel_data: RefuelCreate) -> Refuel:
         """Criar novo abastecimento"""
 
+        # ---------- Validações ----------
         if refuel_data.litros <= 0:
             raise ValidationError("Quantidade de litros deve ser maior que zero")
         
@@ -47,11 +54,10 @@ class RefuelService:
                 f"Quantidade de litros ({refuel_data.litros}L) excede a capacidade do tanque ({vehicle.capacidade_tanque}L)"
             )
         
+        # ---------- Cálculo de média ----------
         media_calculada: Optional[Decimal] = None
         
         if refuel_data.tanque_cheio:
-            # Buscar o último abastecimento de *tanque cheio* para este veículo
-            #    (Usando a KM atual como "antes de")
             ultimo_tanque_cheio = await self.repository.get_last_refuel_by_placa(
                 placa=refuel_data.placa,
                 tanque_cheio=True,
@@ -59,43 +65,63 @@ class RefuelService:
             )
             
             if ultimo_tanque_cheio:
-                # 2. Calcular a distância percorrida desde o último tanque cheio
                 distancia = refuel_data.km - ultimo_tanque_cheio.km
                 
                 if distancia > 0:
-                    # 3. Somar todos os litros de abastecimentos *intermediários* (parciais)
                     litros_intermediarios = await self.repository.get_sum_litros_between_km(
                         placa=refuel_data.placa,
                         km_start=ultimo_tanque_cheio.km,
                         km_end=refuel_data.km
                     )
                     
-                    # 4. Litros totais consumidos = (Litros intermediários) + (Litros do abastecimento atual)
-                    litros_totais_consumidos = litros_intermediarios + refuel_data.litros
+                    litros_totais = litros_intermediarios + refuel_data.litros
                     
-                    if litros_totais_consumidos > 0:
-                        # 5. Calcular a média (Km / L)
-                        media_calculada = Decimal(distancia) / Decimal(litros_totais_consumidos)
-                        # Arredondar para 2 casas decimais, por exemplo
-                        media_calculada = round(media_calculada, 2)
+                    if litros_totais > 0:
+                        media_calculada = Decimal(distancia) / Decimal(litros_totais)
+                        media_calculada = media_calculada.quantize(
+                            Decimal("0.01"), rounding=ROUND_HALF_UP
+                        )
 
-        # Atribui a média calculada (ou None) ao objeto de dados
-        refuel_data.media = media_calculada
-        
-        # Se não for tanque cheio, a média *deve* ser nula
-        if not refuel_data.tanque_cheio:
-            refuel_data.media = None
-            
-        # --- FIM: Lógica de Cálculo de Média ---
+        # Média só existe se tanque_cheio=True
+        refuel_data.media = media_calculada if refuel_data.tanque_cheio else None
 
-        # Criar o abastecimento
+        # ---------- IA: adicionar ao histórico + treinar ----------
+        if media_calculada is not None:
+            train_online_append(refuel_data.placa, float(media_calculada))
+
+        # ---------- Criar abastecimento no banco ----------
         refuel = await self.repository.create(refuel_data)
-        
-        # Atualizar informações do veículo
+
+        # IA: atualizar dados do veículo
+        if media_calculada is not None:
+            vehicle.modelo_ia_treinado = True
+            vehicle.data_ultimo_treinamento = datetime.utcnow()
+
+        # ------------ IA: detectar ANOMALIA ------------
+        if media_calculada is not None:
+            result = detect_anomaly(refuel_data.placa, float(media_calculada))
+
+            if result["anomalia"] is True:
+                # determinar severidade
+                limite_inf = result["limite_inferior"]
+                m = float(media_calculada)
+
+                if m < limite_inf * 0.8:
+                    severity = "HIGH"
+                else:
+                    severity = "MEDIUM"
+
+                await self.alert_service.create_alert(
+                    id_veiculo=vehicle.id,
+                    id_abastecimento=refuel.id,
+                    severity=severity,
+                    message=f"Consumo anormal detectado! Média {media_calculada} km/L"
+                )
+
+        # ---------- Atualizar veículo ----------
         vehicle.km_atual = refuel_data.km
         vehicle.km_ultimo_abastecimento = refuel_data.km
         
-        # Verificar se precisa atualizar manutenção vencida
         if vehicle.km_prox_manutencao is not None and vehicle.km_atual >= vehicle.km_prox_manutencao:
             vehicle.manutencao_vencida = True
         
@@ -104,7 +130,6 @@ class RefuelService:
         return refuel
     
     async def get_refuel_by_id(self, refuel_id: int) -> Refuel:
-        """Buscar abastecimento por ID"""
         return await self.repository.get_by_id(refuel_id)
     
     async def get_refuels(
@@ -116,7 +141,6 @@ class RefuelService:
         data_inicio: Optional[date] = None,
         data_fim: Optional[date] = None
     ) -> List[Refuel]:
-        """Listar abastecimentos com filtros"""
         return await self.repository.get_all(
             skip=skip,
             limit=limit,
@@ -133,7 +157,6 @@ class RefuelService:
         data_inicio: Optional[date] = None,
         data_fim: Optional[date] = None
     ) -> int:
-        """Contar abastecimentos com filtros"""
         return await self.repository.count(
             placa=placa,
             id_usuario=str(id_usuario) if id_usuario else None,
@@ -146,8 +169,6 @@ class RefuelService:
         refuel_id: int,
         refuel_data: RefuelUpdate
     ) -> Refuel:
-        """Atualizar abastecimento"""
-        # Validações se campos forem fornecidos
         if refuel_data.litros is not None and refuel_data.litros <= 0:
             raise ValidationError("Quantidade de litros deve ser maior que zero")
         
@@ -160,6 +181,4 @@ class RefuelService:
         return await self.repository.update(refuel_id, refuel_data)
     
     async def delete_refuel(self, refuel_id: int) -> None:
-        """Deletar abastecimento"""
         await self.repository.delete(refuel_id)
-        

@@ -4,7 +4,7 @@ Execute este arquivo para inicializar o banco de dados
 """
 import asyncio
 from sqlalchemy.ext.asyncio import create_async_engine
-
+from urllib.parse import quote_plus
 from app.core.config import settings
 from app.models import Base, Maintenance  # Import Maintenance para garantir que a tabela seja criada
 

@@ -4,6 +4,8 @@ from .refuel import RefuelCreate, RefuelUpdate, RefuelResponse, RefuelListRespon
 from .vehicle import VehicleCreate, VehicleUpdate, VehicleResponse, VehicleListResponse
 from .maintenance import MaintenanceCreate, MaintenanceUpdate, MaintenanceResponse, MaintenanceListResponse
 from .enums import UserStatus, UserType, TelephoneNumberStatus, VehicleType, MaintenanceStatus
+from .ai import AnomalyRequest, AnomalyResponse, PredictRequest, PredictResponse
+from .alert import AlertCreate, AlertResolveUpdate, AlertResponse
 
 __all__ = [
     "UserBase",
@@ -31,5 +33,14 @@ __all__ = [
     "MaintenanceUpdate",
     "MaintenanceResponse",
     "MaintenanceListResponse",
-    "MaintenanceStatus"
+    "MaintenanceStatus",
+    "AnomalyRequest",
+    "AnomalyResponse",
+    "PredictRequest",
+    "PredictResponse",
+    "AlertCreate",
+    "AlertResolveUpdate",
+    "AlertResponse"
+
+
 ]
