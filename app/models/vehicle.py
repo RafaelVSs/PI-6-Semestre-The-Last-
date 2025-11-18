@@ -97,3 +97,5 @@ class Vehicle(BaseModel):
     def __repr__(self) -> str:
         return f"<Vehicle(id={self.id}, placa='{self.placa}', modelo='{self.modelo}')>"
 
+
+    alerts = relationship("Alert", back_populates="veiculo")
