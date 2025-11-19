@@ -2,11 +2,8 @@ from fastapi import APIRouter, HTTPException
 from app.schemas.ai import AnomalyRequest, AnomalyResponse, PredictRequest, PredictResponse
 from app.services.ai_service import predict_consumption, check_anomaly
 
-router = APIRouter(prefix="/v1/ai", tags=["ai"])
+router = APIRouter(prefix="/ai", tags=["ai"])
 
-# ----------------------------
-# 🔥 1. DETECÇÃO DE ANOMALIA
-# ----------------------------
 @router.post("/anomaly", response_model=AnomalyResponse)
 def detect_anomaly(payload: AnomalyRequest):
     try:
@@ -19,10 +16,6 @@ def detect_anomaly(payload: AnomalyRequest):
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Erro interno: {e}")
 
-
-# ----------------------------
-# 🔥 2. PREVISÃO DE CONSUMO
-# ----------------------------
 @router.post("/predict", response_model=PredictResponse)
 def predict(payload: PredictRequest):
     try:

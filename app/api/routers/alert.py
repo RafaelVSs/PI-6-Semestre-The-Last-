@@ -5,7 +5,7 @@ from app.core.database import get_db
 from app.services.alert_service import AlertService
 from app.schemas.alert import AlertCreate, AlertResolveUpdate, AlertResponse
 
-router = APIRouter(prefix="/v1/alerts", tags=["alerts"])
+router = APIRouter(prefix="/alerts", tags=["alerts"])
 
 
 @router.get("/", response_model=list[AlertResponse])
