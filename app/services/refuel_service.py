@@ -12,8 +12,8 @@ from app.schemas.refuel import RefuelCreate, RefuelUpdate
 from app.common.exceptions.validation_exceptions import ValidationError
 from app.common.exceptions.veiculo_exceptions import VeiculoNotFoundError
 
-# 🔥 IA
-from app.services.ai_training_service import train_online_append
+#  IA
+from app.services.ai_service import update_model_online as train_online_append
 from app.services.ai_service import detect_anomaly
 from app.services.alert_service import AlertService
 
@@ -87,7 +87,7 @@ class RefuelService:
 
         # ---------- IA: adicionar ao histórico + treinar ----------
         if media_calculada is not None:
-            train_online_append(refuel_data.placa, float(media_calculada))
+           train_online_append(refuel_data.placa, float(media_calculada))
 
         # ---------- Criar abastecimento no banco ----------
         refuel = await self.repository.create(refuel_data)
@@ -115,7 +115,7 @@ class RefuelService:
                     id_veiculo=vehicle.id,
                     id_abastecimento=refuel.id,
                     severity=severity,
-                    message=f"Consumo anormal detectado! Média {media_calculada} km/L"
+                    message=f"Anomalia detectada: média {media_calculada} km/L"
                 )
 
         # ---------- Atualizar veículo ----------
