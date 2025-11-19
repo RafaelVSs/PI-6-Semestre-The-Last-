@@ -12,7 +12,7 @@ class Settings(BaseSettings):
     # JWT Configuration
     SECRET_KEY: str = "your-secret-key-change-this-in-production-min-32-chars"
     ALGORITHM: str = "HS256"
-    ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
+    ACCESS_TOKEN_EXPIRE_MINUTES: int = 50000
     
     # Google Cloud Pub/Sub Configuration
     GCP_PROJECT_ID: str = "serjava-demo"
