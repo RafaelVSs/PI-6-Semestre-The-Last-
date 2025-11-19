@@ -3,45 +3,13 @@ Script para criar as tabelas no banco de dados PostgreSQL
 Execute este arquivo para inicializar o banco de dados
 """
 import asyncio
-import time
 from sqlalchemy.ext.asyncio import create_async_engine
-from sqlalchemy import text
 from app.core.config import settings
 from app.models import Base
 
 
-async def wait_for_database(max_retries=30, delay=1):
-    """Aguarda o banco de dados ficar disponível"""
-    print("Aguardando banco de dados ficar disponível...")
-    
-    for attempt in range(max_retries):
-        try:
-            engine = create_async_engine(settings.DATABASE_URL, echo=False)
-            async with engine.begin() as conn:
-                await conn.execute(text("SELECT 1"))
-            await engine.dispose()
-            print("✅ Banco de dados disponível!")
-            return True
-        except Exception as e:
-            print(f"Tentativa {attempt + 1}/{max_retries}: Banco indisponível. Aguardando {delay}s...")
-            await asyncio.sleep(delay)
-        finally:
-            if hasattr(engine, 'dispose'):
-                try:
-                    await engine.dispose()
-                except:
-                    pass
-    
-    print("❌ Timeout: Banco de dados não ficou disponível")
-    return False
-
-
 async def create_tables():
     """Cria todas as tabelas definidas nos modelos SQLAlchemy"""
-    # Aguardar o banco ficar disponível
-    if not await wait_for_database():
-        raise Exception("Banco de dados não está disponível")
-    
     print("Conectando ao banco de dados...")
     
     engine = create_async_engine(
