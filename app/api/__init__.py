@@ -7,7 +7,9 @@ from .routers import (
     vehicle_router,
     maintenance_router,
     alert_routers,
-    ai_router
+    ai_router,
+    dashboard_routers
+    
 )
 
 # Criar router principal para API (prefixo /api/v1)
@@ -22,7 +24,8 @@ routers = [
     vehicle_router,
     maintenance_router,
     alert_routers,
-    ai_router
+    ai_router,
+    dashboard_routers
 ]
 
 # Incluir todos os routers

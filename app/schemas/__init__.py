@@ -6,6 +6,7 @@ from .maintenance import MaintenanceCreate, MaintenanceUpdate, MaintenanceRespon
 from .enums import UserStatus, UserType, TelephoneNumberStatus, VehicleType, MaintenanceStatus
 from .ai import AnomalyRequest, AnomalyResponse, PredictRequest, PredictResponse
 from .alert import AlertCreate, AlertResolveUpdate, AlertResponse
+from .dashboard import ChartData, DashboardMetricsResponse
 
 __all__ = [
     "UserBase",
@@ -40,7 +41,8 @@ __all__ = [
     "PredictResponse",
     "AlertCreate",
     "AlertResolveUpdate",
-    "AlertResponse"
-
+    "AlertResponse",
+    "ChartData",
+    "DashboardMetricsResponse"
 
 ]
