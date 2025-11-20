@@ -7,6 +7,7 @@ from .vehicle import router as vehicle_router
 from .maintenance import router as maintenance_router
 from .ai import router as ai_router
 from .alert import router as alert_routers
+from .dashboard import router as dashboard_routers
 
 
 # Lista de todos os routers para exportação
@@ -19,5 +20,6 @@ __all__ = [
     "vehicle_router",
     "maintenance_router",
     "ai_router",
-    "alert_routers"
+    "alert_routers",
+    "dashboard_routers"
 ]
