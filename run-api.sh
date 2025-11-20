@@ -4,7 +4,7 @@ set -e
 
 # Modo de execução: dev (default) ou prod
 MODE=${1:-dev}
-
+uv run python create_tables.py
 
 if [ "$MODE" = "prod" ]; then
     echo "Iniciando a API em modo PRODUÇÃO na porta 8080..."
