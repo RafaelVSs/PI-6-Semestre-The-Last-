@@ -1,5 +1,6 @@
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
 
 from app.models.alert import Alert
 from app.schemas.alert import AlertCreate
@@ -18,9 +19,28 @@ class AlertRepository:
         return alert
 
     async def get_by_id(self, alert_id):
-        query = select(Alert).where(Alert.id == alert_id)
+        query = (
+            select(Alert)
+            .options(selectinload(Alert.veiculo))
+            .where(Alert.id == alert_id)
+        )
+
         result = await self.db.execute(query)
-        return result.scalar_one_or_none()
+        alert = result.scalar_one_or_none()
+
+        if alert:
+            return {
+                "id": alert.id,
+                "severity": alert.severity,
+                "message": alert.message,
+                "resolved": alert.resolved,
+                "created_at": alert.created_at,
+                "id_veiculo": alert.id_veiculo,
+                "id_abastecimento": alert.id_abastecimento,
+                "placa": alert.veiculo.placa if alert.veiculo else None
+            }
+
+        return None
 
     async def delete(self, alert: Alert):
         await self.db.delete(alert)
@@ -38,7 +58,10 @@ class AlertRepository:
         severity=None,
         resolved=None
     ):
-        query = select(Alert)
+        query = (
+            select(Alert)
+            .options(selectinload(Alert.veiculo))
+        )
 
         if id_veiculo:
             query = query.where(Alert.id_veiculo == id_veiculo)
@@ -52,4 +75,19 @@ class AlertRepository:
         query = query.order_by(Alert.created_at.desc())
 
         result = await self.db.execute(query)
-        return list(result.scalars().all())
+        alerts = result.scalars().all()
+
+        # 🔥 Agora devolvemos a placa junto
+        return [
+            {
+                "id": alert.id,
+                "severity": alert.severity,
+                "message": alert.message,
+                "resolved": alert.resolved,
+                "created_at": alert.created_at,
+                "id_veiculo": alert.id_veiculo,
+                "id_abastecimento": alert.id_abastecimento,
+                "placa": alert.veiculo.placa if alert.veiculo else None
+            }
+            for alert in alerts
+        ]

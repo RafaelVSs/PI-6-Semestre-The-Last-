@@ -5,13 +5,15 @@ from sqlalchemy import Column, String, DateTime, Boolean, ForeignKey
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import relationship
 
-from app.models.base import Base  # <- IMPORT CORRETO
+from app.models.base import Base
 
 
 class Alert(Base):
     __tablename__ = "alerts"
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+
+    # 🔥 chaves estrangeiras
     id_veiculo = Column(UUID(as_uuid=True), ForeignKey("veiculos.id"), nullable=False)
     id_abastecimento = Column(UUID(as_uuid=True), ForeignKey("refuel.id"), nullable=False)
 
@@ -21,6 +23,6 @@ class Alert(Base):
     resolved = Column(Boolean, default=False)
     created_at = Column(DateTime, default=datetime.utcnow)
 
-    veiculo = relationship("Vehicle")
-    abastecimento = relationship("Refuel")
-
+    # 🔥 RELACIONAMENTOS
+    veiculo = relationship("Vehicle", back_populates="alerts", lazy="joined")
+    abastecimento = relationship("Refuel", lazy="joined")

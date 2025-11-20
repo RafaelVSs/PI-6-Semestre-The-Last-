@@ -4,7 +4,6 @@ from datetime import datetime
 from typing import Optional
 
 
-
 class AlertCreate(BaseModel):
     id_veiculo: UUID
     id_abastecimento: UUID
@@ -16,6 +15,9 @@ class AlertResponse(AlertCreate):
     id: UUID
     resolved: bool
     created_at: datetime
+
+    
+    placa: Optional[str] = None
 
     class Config:
         from_attributes = True
