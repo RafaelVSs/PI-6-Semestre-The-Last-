@@ -26,21 +26,8 @@ class AlertRepository:
         )
 
         result = await self.db.execute(query)
-        alert = result.scalar_one_or_none()
-
-        if alert:
-            return {
-                "id": alert.id,
-                "severity": alert.severity,
-                "message": alert.message,
-                "resolved": alert.resolved,
-                "created_at": alert.created_at,
-                "id_veiculo": alert.id_veiculo,
-                "id_abastecimento": alert.id_abastecimento,
-                "placa": alert.veiculo.placa if alert.veiculo else None
-            }
-
-        return None
+        # retorna OBJETO Alert
+        return result.scalar_one_or_none()
 
     async def delete(self, alert: Alert):
         await self.db.delete(alert)
@@ -77,17 +64,5 @@ class AlertRepository:
         result = await self.db.execute(query)
         alerts = result.scalars().all()
 
-        # 🔥 Agora devolvemos a placa junto
-        return [
-            {
-                "id": alert.id,
-                "severity": alert.severity,
-                "message": alert.message,
-                "resolved": alert.resolved,
-                "created_at": alert.created_at,
-                "id_veiculo": alert.id_veiculo,
-                "id_abastecimento": alert.id_abastecimento,
-                "placa": alert.veiculo.placa if alert.veiculo else None
-            }
-            for alert in alerts
-        ]
+        # retorna lista de OBJETOS
+        return alerts

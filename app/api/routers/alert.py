@@ -17,7 +17,20 @@ async def list_alerts(
 ):
     service = AlertService(db)
     alerts = await service.list_alerts(id_veiculo, severity, resolved)
-    return alerts
+
+    return [
+        {
+            "id": a.id,
+            "severity": a.severity,
+            "message": a.message,
+            "resolved": a.resolved,
+            "created_at": a.created_at,
+            "id_veiculo": a.id_veiculo,
+            "id_abastecimento": a.id_abastecimento,
+            "placa": a.veiculo.placa if a.veiculo else None
+        }
+        for a in alerts
+    ]
 
 
 @router.get("/{alert_id}", response_model=AlertResponse)
@@ -26,7 +39,17 @@ async def get_alert(alert_id: str, db: AsyncSession = Depends(get_db)):
     alert = await service.get_alert(alert_id)
     if not alert:
         raise HTTPException(404, "Alerta não encontrado")
-    return alert
+
+    return {
+        "id": alert.id,
+        "severity": alert.severity,
+        "message": alert.message,
+        "resolved": alert.resolved,
+        "created_at": alert.created_at,
+        "id_veiculo": alert.id_veiculo,
+        "id_abastecimento": alert.id_abastecimento,
+        "placa": alert.veiculo.placa if alert.veiculo else None
+    }
 
 
 @router.post("/", response_model=AlertResponse)
@@ -38,7 +61,16 @@ async def create_alert(payload: AlertCreate, db: AsyncSession = Depends(get_db))
         severity=payload.severity,
         message=payload.message
     )
-    return alert
+    return {
+        "id": alert.id,
+        "severity": alert.severity,
+        "message": alert.message,
+        "resolved": alert.resolved,
+        "created_at": alert.created_at,
+        "id_veiculo": alert.id_veiculo,
+        "id_abastecimento": alert.id_abastecimento,
+        "placa": None  # veiculo não carregado aqui, mas OK
+    }
 
 
 @router.patch("/{alert_id}/resolve", response_model=AlertResponse)
@@ -47,7 +79,17 @@ async def resolve_alert(alert_id: str, payload: AlertResolveUpdate, db: AsyncSes
     alert = await service.resolve_alert(alert_id, payload.resolved)
     if not alert:
         raise HTTPException(404, "Alerta não encontrado")
-    return alert
+
+    return {
+        "id": alert.id,
+        "severity": alert.severity,
+        "message": alert.message,
+        "resolved": alert.resolved,
+        "created_at": alert.created_at,
+        "id_veiculo": alert.id_veiculo,
+        "id_abastecimento": alert.id_abastecimento,
+        "placa": alert.veiculo.placa if alert.veiculo else None
+    }
 
 
 @router.delete("/{alert_id}")
