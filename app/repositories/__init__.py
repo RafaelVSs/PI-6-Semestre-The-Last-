@@ -4,7 +4,7 @@ from .refuel_repository import RefuelRepository
 from .vehicle_repository import VehicleRepository
 from .maintenance_repository import MaintenanceRepository
 from .alert_repository import AlertRepository
-from .dashboard_repository import D
+from .dashboard_repository import DashboardRepository
 
 
 

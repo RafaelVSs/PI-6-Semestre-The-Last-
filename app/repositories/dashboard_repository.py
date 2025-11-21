@@ -29,7 +29,7 @@ class DashboardRepository:
         total_veiculos = (await self.db.execute(query)).scalar() or 0
 
         # ---------------------------
-        # MÉTRICAS DE COMBUSTÍVEL
+        # BUSCA DOS ABASTECIMENTOS
         # ---------------------------
         refuel_query = select(Refuel)
 
@@ -42,8 +42,13 @@ class DashboardRepository:
 
         refuels = (await self.db.execute(refuel_query)).scalars().all()
 
-        total_litros = sum([float(r.litros) for r in refuels])
-        custo_total = sum([float(r.valor_total) for r in refuels])
+        # Quantidade de abastecimentos do período
+        abastecimentos_recent = len(refuels)
+
+        # ---------------------------
+        # CUSTOS
+        # ---------------------------
+        custo_total = sum(float(r.valor_total) for r in refuels)
 
         # ---------------------------
         # GRÁFICO: Gasto por mês
@@ -61,7 +66,7 @@ class DashboardRepository:
         ]
 
         # ---------------------------
-        # GRÁFICO: Consumo Médio por Veículo
+        # GRÁFICO: Consumo por veículo (média)
         # ---------------------------
         consumo_por_veiculo: dict[str, List[float]] = {}
 
@@ -71,17 +76,30 @@ class DashboardRepository:
                 consumo_por_veiculo[r.placa].append(float(r.media))
 
         consumo_data = [
-            ChartData(name=placa, consumo=sum(valores) / len(valores))
-            for placa, valores in consumo_por_veiculo.items()
+            ChartData(name=placa, consumo=sum(vals) / len(vals))
+            for placa, vals in consumo_por_veiculo.items()
         ]
 
+        # Média da frota
+        media_consumo_frota = (
+            sum(cd.consumo for cd in consumo_data) / len(consumo_data)
+            if consumo_data else 0
+        )
+
+        # ---------------------------
+        # RETORNO FINAL
+        # ---------------------------
         return DashboardMetricsResponse(
             totalVeiculos=total_veiculos,
+            abastecimentosRecentes=abastecimentos_recent,
             custoTotalCombustivel=custo_total,
-            mediaConsumoFrota=(sum([cd.consumo for cd in consumo_data]) / len(consumo_data)) if consumo_data else 0,
+            mediaConsumoFrota=media_consumo_frota,
             gastoData=gasto_data,
             vehicleConsumptionData=consumo_data,
-            veiculoMaisEconomico=max(consumo_data, key=lambda x: x.consumo, default=None),
-            veiculoMaisConsome=min(consumo_data, key=lambda x: x.consumo, default=None),
-            alertas=[]
+            veiculoMaisEconomico=(
+                max(consumo_data, key=lambda x: x.consumo) if consumo_data else None
+            ),
+            veiculoMaisConsome=(
+                min(consumo_data, key=lambda x: x.consumo) if consumo_data else None
+            )
         )
