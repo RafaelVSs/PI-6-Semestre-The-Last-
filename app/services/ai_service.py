@@ -2,6 +2,9 @@ import os
 import joblib
 import numpy as np
 
+from sklearn.ensemble import IsolationForest
+from sklearn.preprocessing import StandardScaler
+
 BASE_PATH = "/app/models/modelos_frota/"
 
 
@@ -26,13 +29,71 @@ def ensure_folder(placa: str):
 
 
 # ----------------------------------------
+#         TREINAMENTO ROBUSTO
+# ----------------------------------------
+
+def train_robust_model(placa: str, historico: np.ndarray):
+    """
+    Treina um modelo de detecção de anomalias robusto
+    usando IsolationForest em cima da média de consumo.
+    Salva o modelo em modelo.joblib e atualiza limites.joblib.
+    """
+
+    paths = ensure_folder(placa)
+
+    # reshape para (n amostras, 1 feature)
+    X = historico.reshape(-1, 1)
+
+    # Padronização
+    scaler = StandardScaler()
+    X_scaled = scaler.fit_transform(X)
+
+    # Modelo de anomalia
+    iso = IsolationForest(
+        n_estimators=200,
+        contamination=0.05,   # ~5% de anomalias esperadas
+        random_state=42
+    )
+    iso.fit(X_scaled)
+
+    media_hist = float(np.mean(historico))
+    std_hist = float(np.std(historico))
+
+    # Limites estatísticos mais realistas
+    limite_sup = media_hist + 1.5 * std_hist
+    limite_inf = max(media_hist - 1.5 * std_hist, 0.1)
+
+    modelo = {
+        "scaler": scaler,
+        "iso": iso,
+        "media": media_hist,
+        "std": std_hist,
+        "limite_sup": limite_sup,
+        "limite_inf": limite_inf,
+    }
+
+    # Salva modelo completo
+    joblib.dump(modelo, paths["model"])
+
+    # Também salva limites em arquivo separado, para compatibilidade
+    limites = {
+        "media": media_hist,
+        "std": std_hist,
+        "limite_sup": limite_sup,
+        "limite_inf": limite_inf,
+    }
+    joblib.dump(limites, paths["limits"])
+
+
+# ----------------------------------------
 #         ATUALIZAÇÃO ONLINE
 # ----------------------------------------
 
 def update_model_online(placa: str, media_calculada: float):
     """
     Atualiza o "modelo" incrementalmente.
-    Usa estatística simples (média e desvio) até você evoluir depois.
+    Agora guarda histórico e, quando tiver dados suficientes,
+    treina / atualiza o modelo robusto (IsolationForest).
     """
 
     paths = ensure_folder(placa)
@@ -48,21 +109,12 @@ def update_model_online(placa: str, media_calculada: float):
     historico.append(media_calculada)
 
     # Salva histórico atualizado
-    np.save(hist_file, np.array(historico))
+    historico_np = np.array(historico, dtype=float)
+    np.save(hist_file, historico_np)
 
-    # Só salva limites quando houver histórico suficiente
-    if len(historico) >= 10:
-        media_hist = float(np.mean(historico))
-        std_hist = float(np.std(historico))
-
-        limites = {
-            "media": media_hist,
-            "std": std_hist,
-            "limite_sup": media_hist + 3 * std_hist,
-            "limite_inf": media_hist - 3 * std_hist,
-        }
-
-        joblib.dump(limites, paths["limits"])
+    # Só treina modelo robusto quando houver histórico suficiente
+    if len(historico_np) >= 30:  # você pode ajustar esse mínimo
+        train_robust_model(placa, historico_np)
 
     return True
 
@@ -74,8 +126,20 @@ def update_model_online(placa: str, media_calculada: float):
 def detect_anomaly(placa: str, media_informada: float):
     paths = get_model_paths(placa)
 
-    # Se não há limites salvos, ainda não tem modelo treinado
-    if not os.path.exists(paths["limits"]):
+    model_path = paths["model"]
+    limits_path = paths["limits"]
+
+    media_hist = None
+    std_hist = None
+    limite_inf = None
+    limite_sup = None
+    rmse = None
+    age = None
+    is_anomalia = False
+    motivo = None
+
+    # Se não há nada salvo ainda → resposta padrão
+    if (not os.path.exists(model_path)) and (not os.path.exists(limits_path)):
         return {
             "placa": placa,
             "media_historica": None,
@@ -89,33 +153,70 @@ def detect_anomaly(placa: str, media_informada: float):
             "motivo": "Ainda não há histórico suficiente para treinar o modelo."
         }
 
-    limites = joblib.load(paths["limits"])
-    media_hist = limites["media"]
-    std_hist = limites["std"]
-    limite_inf = limites["limite_inf"]
-    limite_sup = limites["limite_sup"]
+    # Primeiro tenta usar o modelo robusto (IsolationForest)
+    if os.path.exists(model_path):
+        modelo = joblib.load(model_path)
+        scaler = modelo["scaler"]
+        iso = modelo["iso"]
+        media_hist = modelo["media"]
+        std_hist = modelo["std"]
+        limite_inf = modelo["limite_inf"]
+        limite_sup = modelo["limite_sup"]
 
-    # AGE – distância absoluta entre a média informada e a média histórica
-    age = abs(media_informada - media_hist)
+        # AGE = diferença absoluta da média
+        age = abs(media_informada - media_hist)
 
-    # Desvio padrão médio → similar ao RMSE
-    rmse = std_hist
+        # RMSE aproximado como o desvio padrão (pode ser refinado depois)
+        rmse = std_hist
 
-    # Anomalia se estourou limite inferior ou superior
-    is_anomalia = media_informada < limite_inf or media_informada > limite_sup
+        # Prepara feature
+        X = np.array([[media_informada]], dtype=float)
+        X_scaled = scaler.transform(X)
 
-    return {
-        "placa": placa,
-        "media_historica": media_hist,
-        "std_historico": std_hist,
-        "limite_inferior": limite_inf,
-        "limite_superior": limite_sup,
-        "media_informada": media_informada,
-        "anomalia": is_anomalia,
-        "rmse": rmse,
-        "age": age
-    }
+        # IsolationForest: 1 = normal, -1 = anomalia
+        label = iso.predict(X_scaled)[0]
+        score = iso.decision_function(X_scaled)[0]  # quanto mais negativo, mais anômalo
 
+        is_anomalia = (label == -1)
+
+        return {
+            "placa": placa,
+            "media_historica": media_hist,
+            "std_historico": std_hist,
+            "limite_inferior": limite_inf,
+            "limite_superior": limite_sup,
+            "media_informada": media_informada,
+            "anomalia": is_anomalia,
+            "rmse": rmse,
+            "age": age,
+            "score_modelo": float(score),
+            "motivo": motivo
+        }
+
+    # Fallback: se por algum motivo só tiver limites.joblib
+    elif os.path.exists(limits_path):
+        limites = joblib.load(limits_path)
+        media_hist = limites["media"]
+        std_hist = limites["std"]
+        limite_inf = limites["limite_inf"]
+        limite_sup = limites["limite_sup"]
+
+        age = abs(media_informada - media_hist)
+        rmse = std_hist
+        is_anomalia = media_informada < limite_inf or media_informada > limite_sup
+
+        return {
+            "placa": placa,
+            "media_historica": media_hist,
+            "std_historico": std_hist,
+            "limite_inferior": limite_inf,
+            "limite_superior": limite_sup,
+            "media_informada": media_informada,
+            "anomalia": is_anomalia,
+            "rmse": rmse,
+            "age": age,
+            "motivo": "Detectado apenas com base em limites estatísticos (fallback)."
+        }
 
 
 # -----------------------------------------------------
@@ -136,7 +237,6 @@ def check_anomaly(payload: dict):
             raise ValueError("Não foi possível calcular a média para verificar anomalia.")
 
     return detect_anomaly(placa, media)
-
 
 
 def predict_consumption(payload: dict):
@@ -161,8 +261,9 @@ def predict_consumption(payload: dict):
             "age": None
         }
 
-    media_hist = float(np.mean(historico))
-    rmse = float(np.sqrt(np.mean((np.array(historico) - media_hist) ** 2)))
+    historico_np = np.array(historico, dtype=float)
+    media_hist = float(np.mean(historico_np))
+    rmse = float(np.sqrt(np.mean((historico_np - media_hist) ** 2)))
 
     # Se o usuário mandou litros e km para prever o AGE
     if "km" in payload and "litros_usados" in payload:
@@ -179,4 +280,3 @@ def predict_consumption(payload: dict):
         "rmse": rmse,
         "age": age
     }
-
