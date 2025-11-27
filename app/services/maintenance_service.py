@@ -1,5 +1,5 @@
 from typing import Optional, List, Dict, Any
-from uuid import UUID
+from uuid import UUID, uuid4
 import logging
 
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -54,21 +54,19 @@ class MaintenanceService:
                 "manutencoes",
                 "Pelo menos um item de manutenção deve ser selecionado"
             )
-        
-        # ---------- Publicar no Pub/Sub (SEM PERSISTIR) ----------
-        logger.info("� Publicando solicitação de manutenção no Pub/Sub...")
+
+        logger.info("📢 Publicando solicitação de manutenção no Pub/Sub...")
         
         if self.pubsub_client is None:
             logger.error("⚠️ PubSubClient não está disponível")
             raise ValidationError.invalid_field("pubsub", "Sistema de mensageria indisponível")
         
         try:
-
-            temp_id = str(UUID())
+            # Gerar ID temporário para tracking
+            temp_id = str(uuid4())
             
             logger.info(f"🚀 Publicando manutenção [ID Temp: {temp_id}] no Pub/Sub...")
-            
-            # Preparar payload para o worker processar
+
             payload = {
                 "temp_id": temp_id,
                 "placa": maintenance_data.placa,
@@ -84,8 +82,7 @@ class MaintenanceService:
             }
             
             logger.info(f"📦 Payload preparado: {payload}")
-            
-            # Publicar mensagem no Pub/Sub
+
             message_id = await self.pubsub_client.publish_message(
                 data=payload,
                 event_type="maintenance.created",
@@ -93,8 +90,7 @@ class MaintenanceService:
             )
             
             logger.info(f"✅ Mensagem publicada com sucesso! Message ID: {message_id}")
-            
-            # Retornar confirmação de envio (não o registro salvo)
+
             return {
                 "message": "Solicitação de manutenção enviada para processamento",
                 "message_id": message_id,
