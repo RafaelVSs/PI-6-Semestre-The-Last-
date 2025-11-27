@@ -1,8 +1,15 @@
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
+import logging
 
 from .core.config import settings
+
+# Configurar logging para a aplicação
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+)
 from .api import api_router
 from .api.routers.home import router as home_router
 from .common.exceptions import (

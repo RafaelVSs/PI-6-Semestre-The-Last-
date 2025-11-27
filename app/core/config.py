@@ -18,7 +18,7 @@ class Settings(BaseSettings):
     GCP_PROJECT_ID: str = "serjava-demo"
     PUBSUB_TOPIC: str = "pi-smarttruck-pub"
     PUBSUB_SUBSCRIPTION: str = "pi-smarttruck-sub"
-    GOOGLE_APPLICATION_CREDENTIALS: Optional[str] = None  # Path to service account JSON
+    GOOGLE_APPLICATION_CREDENTIALS: Optional[str] = None 
     
     # CORS Configuration
     CORS_ORIGINS: str = "http://localhost:8081,http://localhost:3000,http://localhost:3030,https://frotinix.eastus2.cloudapp.azure.com,https://frotinix.vercel.app,exp://192.168.100.10:8081,http://localhost:8081"

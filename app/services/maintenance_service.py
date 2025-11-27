@@ -1,5 +1,6 @@
-from typing import Optional, List
+from typing import Optional, List, Dict, Any
 from uuid import UUID
+import logging
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -11,14 +12,25 @@ from app.schemas.enums import MaintenanceStatus
 from app.common.exceptions.validation_exceptions import ValidationError
 from app.common.exceptions.veiculo_exceptions import VeiculoNotFoundError
 
+# Pub/Sub
+from app.integrations.pubsub.client import get_pubsub_client
+
+logger = logging.getLogger(__name__)
+
 
 class MaintenanceService:
     def __init__(self, db: AsyncSession):
         self.repo = MaintenanceRepository(db)
         self.vehicle_repo = VehicleRepository(db)
+        try:
+            self.pubsub_client = get_pubsub_client()
+            logger.info("✅ PubSubClient inicializado com sucesso")
+        except Exception as e:
+            logger.error(f"❌ Erro ao obter PubSubClient: {e}", exc_info=True)
+            self.pubsub_client = None
     
-    async def create_maintenance(self, maintenance_data: MaintenanceCreate) -> Maintenance:
-        """Cria uma nova manutenção com validações de negócio"""
+    async def create_maintenance(self, maintenance_data: MaintenanceCreate) -> Dict[str, Any]:
+        """Publica solicitação de manutenção no Pub/Sub para processamento assíncrono"""
         # Validar se o veículo existe
         try:
             vehicle = await self.vehicle_repo.get_by_placa(maintenance_data.placa)
@@ -43,7 +55,57 @@ class MaintenanceService:
                 "Pelo menos um item de manutenção deve ser selecionado"
             )
         
-        return await self.repo.create(maintenance_data)
+        # ---------- Publicar no Pub/Sub (SEM PERSISTIR) ----------
+        logger.info("� Publicando solicitação de manutenção no Pub/Sub...")
+        
+        if self.pubsub_client is None:
+            logger.error("⚠️ PubSubClient não está disponível")
+            raise ValidationError.invalid_field("pubsub", "Sistema de mensageria indisponível")
+        
+        try:
+            # Gerar ID temporário para tracking
+            from uuid import uuid7
+            temp_id = str(uuid7())
+            
+            logger.info(f"🚀 Publicando manutenção [ID Temp: {temp_id}] no Pub/Sub...")
+            
+            # Preparar payload para o worker processar
+            payload = {
+                "temp_id": temp_id,
+                "placa": maintenance_data.placa,
+                "km_atual": maintenance_data.km_atual,
+                "status": "pendente",
+                "manutencoes": {
+                    "oleo": maintenance_data.oleo,
+                    "filtro_oleo": maintenance_data.filtro_oleo,
+                    "filtro_combustivel": maintenance_data.filtro_combustivel,
+                    "filtro_ar": maintenance_data.filtro_ar,
+                    "engraxamento": maintenance_data.engraxamento
+                }
+            }
+            
+            logger.info(f"📦 Payload preparado: {payload}")
+            
+            # Publicar mensagem no Pub/Sub
+            message_id = await self.pubsub_client.publish_message(
+                data=payload,
+                event_type="maintenance.created",
+                placa=maintenance_data.placa
+            )
+            
+            logger.info(f"✅ Mensagem publicada com sucesso! Message ID: {message_id}")
+            
+            # Retornar confirmação de envio (não o registro salvo)
+            return {
+                "message": "Solicitação de manutenção enviada para processamento",
+                "message_id": message_id,
+                "temp_id": temp_id,
+                "status": "queued"
+            }
+            
+        except Exception as e:
+            logger.error(f"❌ Erro ao publicar manutenção no Pub/Sub: {type(e).__name__}: {e}", exc_info=True)
+            raise ValidationError.invalid_field("pubsub", f"Falha ao enviar mensagem: {str(e)}")
 
     async def get_maintenance_by_id(self, maintenance_id: UUID) -> Maintenance:
         """Busca uma manutenção pelo ID"""

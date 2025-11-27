@@ -15,16 +15,24 @@ from app.common.exceptions.validation_exceptions import ValidationError
 router = APIRouter(prefix="/maintenances", tags=["maintenances"])
 
 
-@router.post("/", response_model=MaintenanceResponse, status_code=status.HTTP_201_CREATED)
+@router.post("/", status_code=status.HTTP_202_ACCEPTED)
 async def create_maintenance(
     maintenance_data: MaintenanceCreate,
     db: AsyncSession = Depends(get_db_session),
     current_user: User = Depends(get_current_active_user)
-) -> MaintenanceResponse:
-    """Criar nova manutenção"""
+):
+    """Criar nova manutenção e publicar no Pub/Sub"""
     service = MaintenanceService(db)
-    maintenance = await service.create_maintenance(maintenance_data)
-    return MaintenanceResponse.model_validate(maintenance)
+    result = await service.create_maintenance(maintenance_data)
+    
+    # Retornar confirmação de envio
+    return {
+        "message": result["message"],
+        "temp_id": result["temp_id"],
+        "message_id": result["message_id"],
+        "status": result["status"],
+        "info": "A manutenção será processada em breve pelo sistema"
+    }
 
 
 @router.get("/", response_model=MaintenanceListResponse, status_code=status.HTTP_200_OK)

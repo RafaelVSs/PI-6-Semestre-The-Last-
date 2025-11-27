@@ -21,6 +21,9 @@ COPY app ./app
 COPY create_tables.py ./
 COPY run-api.sh ./
 
+# Criar diretório de credenciais (será populado via env var em produção)
+RUN mkdir -p /app/app/integrations/pubsub/credential
+
 RUN chmod +x run-api.sh
 
 ENV PATH="/app/.venv/bin:$PATH" \

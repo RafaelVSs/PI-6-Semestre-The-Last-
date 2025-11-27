@@ -4,8 +4,10 @@ Cliente Google Cloud Pub/Sub para publicação de mensagens
 import json
 import logging
 import os
-from typing import Any, Dict
+import tempfile
+from typing import Any, Dict, Optional
 from google.cloud import pubsub_v1
+from google.oauth2 import service_account
 from google.api_core import retry
 
 from app.core.config import settings
@@ -18,18 +20,47 @@ class PubSubClient:
     
     def __init__(self):
         """Inicializa o publisher client"""
-        # Define o caminho das credenciais se fornecido
-        if settings.GOOGLE_APPLICATION_CREDENTIALS:
-            os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = settings.GOOGLE_APPLICATION_CREDENTIALS
+        logger.info("🔧 Inicializando PubSubClient...")
         
-        # Usa o caminho padrão se não estiver configurado
-        default_credentials_path = "app/integrations/pubsub/credential/serjava-demo-key.json"
-        if not settings.GOOGLE_APPLICATION_CREDENTIALS and os.path.exists(default_credentials_path):
-            os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = default_credentials_path
+        credentials = self._get_credentials()
         
-        self.publisher = pubsub_v1.PublisherClient()
+        if credentials:
+            logger.info("📝 Criando PublisherClient com credenciais customizadas")
+            self.publisher = pubsub_v1.PublisherClient(credentials=credentials)
+        else:
+            # Fallback para credenciais padrão do ambiente
+            logger.info("📝 Criando PublisherClient com credenciais padrão do ambiente")
+            self.publisher = pubsub_v1.PublisherClient()
+        
         self.topic_path = f"projects/{settings.GCP_PROJECT_ID}/topics/{settings.PUBSUB_TOPIC}"
-        logger.info(f"PubSubClient inicializado para tópico: {self.topic_path}")
+        logger.info(f"✅ PubSubClient inicializado para tópico: {self.topic_path}")
+    
+    def _get_credentials(self) -> Optional[service_account.Credentials]:
+        """
+        Obtém credenciais do Google Cloud de diferentes fontes (prioridade):
+        1. Arquivo via caminho em variável de ambiente (GOOGLE_APPLICATION_CREDENTIALS)
+        2. Arquivo padrão no projeto (dev only)
+        """
+        # Opção 1: Arquivo via variável de ambiente
+        if settings.GOOGLE_APPLICATION_CREDENTIALS:
+            if os.path.exists(settings.GOOGLE_APPLICATION_CREDENTIALS):
+                os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = settings.GOOGLE_APPLICATION_CREDENTIALS
+                logger.info(f"Usando credenciais Pub/Sub do arquivo: {settings.GOOGLE_APPLICATION_CREDENTIALS}")
+                return None  # Deixa o Google Auth usar o arquivo
+            else:
+                logger.warning(f"Arquivo de credenciais não encontrado: {settings.GOOGLE_APPLICATION_CREDENTIALS}")
+        
+        # Opção 2: Arquivo padrão (apenas desenvolvimento)
+        project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(__file__))))
+        default_credentials_path = os.path.join(project_root, "app", "integrations", "pubsub", "credential", "serjava-demo-key.json")
+        
+        if os.path.exists(default_credentials_path):
+            os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = default_credentials_path
+            logger.info(f"Usando credenciais Pub/Sub padrão: {default_credentials_path}")
+            return None  # Deixa o Google Auth usar o arquivo
+        
+        logger.warning("Nenhuma credencial Pub/Sub configurada. Tentando usar credenciais padrão do ambiente.")
+        return None
     
     async def publish_message(self, data: Dict[str, Any], **attributes) -> str:
         """

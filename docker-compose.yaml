@@ -35,10 +35,10 @@ services:
       ALGORITHM: HS256
       ACCESS_TOKEN_EXPIRE_MINUTES: 30
       
-      # Pub/Sub (opcional)
-      GOOGLE_APPLICATION_CREDENTIALS: ${GOOGLE_APPLICATION_CREDENTIALS:-}
-      PUBSUB_PROJECT_ID: ${PUBSUB_PROJECT_ID:-}
-      PUBSUB_TOPIC_ID: ${PUBSUB_TOPIC_ID:-}
+      # Pub/Sub
+      GOOGLE_APPLICATION_CREDENTIALS: /app/app/integrations/pubsub/credential/serjava-demo-key.json
+      GCP_PROJECT_ID: serjava-demo
+      PUBSUB_TOPIC: pi-smarttruck-pub
     ports:
       - "8080:8080"
     depends_on:
@@ -48,6 +48,7 @@ services:
       - app-network
     volumes:
       - ./models:/app/models/modelos_frota
+      - ./app/integrations/pubsub/credential:/app/app/integrations/pubsub/credential
     restart: always
 
 networks:
