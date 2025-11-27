@@ -63,9 +63,8 @@ class MaintenanceService:
             raise ValidationError.invalid_field("pubsub", "Sistema de mensageria indisponível")
         
         try:
-            # Gerar ID temporário para tracking
-            from uuid import uuid7
-            temp_id = str(uuid7())
+
+            temp_id = str(UUID())
             
             logger.info(f"🚀 Publicando manutenção [ID Temp: {temp_id}] no Pub/Sub...")
             
