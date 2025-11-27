@@ -125,60 +125,30 @@ def update_model_online(placa: str, media_calculada: float):
 
 def detect_anomaly(placa: str, media_informada: float):
     paths = get_model_paths(placa)
-
     model_path = paths["model"]
     limits_path = paths["limits"]
 
-    media_hist = None
-    std_hist = None
-    limite_inf = None
-    limite_sup = None
-    rmse = None
-    age = None
-    is_anomalia = False
-    motivo = None
-
-    # Se não há nada salvo ainda → resposta padrão
-    if (not os.path.exists(model_path)) and (not os.path.exists(limits_path)):
+    # Se não existe limites E não existe modelo → IA não está pronta
+    if not os.path.exists(model_path) and not os.path.exists(limits_path):
         return {
             "placa": placa,
-            "media_historica": None,
-            "std_historico": None,
-            "limite_inferior": None,
-            "limite_superior": None,
-            "media_informada": media_informada,
             "anomalia": False,
-            "rmse": None,
-            "age": None,
-            "motivo": "Ainda não há histórico suficiente para treinar o modelo."
+            "motivo": "Ainda não há histórico suficiente para treinar o modelo.",
+            "media_informada": media_informada
         }
 
-    # Primeiro tenta usar o modelo robusto (IsolationForest)
-    if os.path.exists(model_path):
-        modelo = joblib.load(model_path)
-        scaler = modelo["scaler"]
-        iso = modelo["iso"]
-        media_hist = modelo["media"]
-        std_hist = modelo["std"]
-        limite_inf = modelo["limite_inf"]
-        limite_sup = modelo["limite_sup"]
+    # Carregar limites sempre (base estatística)
+    limites = joblib.load(limits_path)
+    media_hist = limites["media"]
+    std_hist = limites["std"]
+    limite_inf = limites["limite_inf"]
+    limite_sup = limites["limite_sup"]
 
-        # AGE = diferença absoluta da média
-        age = abs(media_informada - media_hist)
+    # Verificação estatística (regra fixa)
+    limite_alerta = media_informada < limite_inf or media_informada > limite_sup
 
-        # RMSE aproximado como o desvio padrão (pode ser refinado depois)
-        rmse = std_hist
-
-        # Prepara feature
-        X = np.array([[media_informada]], dtype=float)
-        X_scaled = scaler.transform(X)
-
-        # IsolationForest: 1 = normal, -1 = anomalia
-        label = iso.predict(X_scaled)[0]
-        score = iso.decision_function(X_scaled)[0]  # quanto mais negativo, mais anômalo
-
-        is_anomalia = (label == -1)
-
+    # Se NÃO existe modelo robusto (IsolationForest) → usar só limites
+    if not os.path.exists(model_path):
         return {
             "placa": placa,
             "media_historica": media_hist,
@@ -186,37 +156,33 @@ def detect_anomaly(placa: str, media_informada: float):
             "limite_inferior": limite_inf,
             "limite_superior": limite_sup,
             "media_informada": media_informada,
-            "anomalia": is_anomalia,
-            "rmse": rmse,
-            "age": age,
-            "score_modelo": float(score),
-            "motivo": motivo
+            "anomalia": limite_alerta,
+            "motivo": "Detecção baseada apenas em limites estatísticos."
         }
 
-    # Fallback: se por algum motivo só tiver limites.joblib
-    elif os.path.exists(limits_path):
-        limites = joblib.load(limits_path)
-        media_hist = limites["media"]
-        std_hist = limites["std"]
-        limite_inf = limites["limite_inf"]
-        limite_sup = limites["limite_sup"]
+    # Carregar modelo robusto (modelo + scaler)
+    modelo = joblib.load(model_path)
+    scaler = modelo["scaler"]
+    iso = modelo["iso"]
 
-        age = abs(media_informada - media_hist)
-        rmse = std_hist
-        is_anomalia = media_informada < limite_inf or media_informada > limite_sup
+    # Rodar IsolationForest
+    X = np.array([[media_informada]])
+    X_scaled = scaler.transform(X)
+    label = iso.predict(X_scaled)[0]
 
-        return {
-            "placa": placa,
-            "media_historica": media_hist,
-            "std_historico": std_hist,
-            "limite_inferior": limite_inf,
-            "limite_superior": limite_sup,
-            "media_informada": media_informada,
-            "anomalia": is_anomalia,
-            "rmse": rmse,
-            "age": age,
-            "motivo": "Detectado apenas com base em limites estatísticos (fallback)."
-        }
+    # Anomalia final = limites OU modelo
+    is_anomalia = limite_alerta or (label == -1)
+
+    return {
+        "placa": placa,
+        "media_historica": media_hist,
+        "std_historico": std_hist,
+        "limite_inferior": limite_inf,
+        "limite_superior": limite_sup,
+        "media_informada": media_informada,
+        "anomalia": is_anomalia,
+        "motivo": "Limites ou modelo detectaram anomalia."
+    }
 
 
 # -----------------------------------------------------
